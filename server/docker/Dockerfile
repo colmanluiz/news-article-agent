@@ -1,26 +1,25 @@
-# Use Node.js 18 LTS as the base image
 FROM node:18-slim
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files first for better layer caching
-COPY package*.json ./
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libc6 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+COPY package*.json ./
+COPY tsconfig.json ./
+
 RUN npm install
 
-# Copy application code
-COPY . .
+COPY src/ ./src/
 
-# Build TypeScript code
 RUN npm run build
 
-# Expose the application port (adjust this to match your app's port)
-EXPOSE 300
+EXPOSE 3001
 
-# Set environment variables
 ENV NODE_ENV=production
+ENV PORT=3001
 
-# Command to run the application
-CMD ["node", "dist/index.js"]
+CMD ["node", "build/app.js"]

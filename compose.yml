@@ -1,8 +1,19 @@
-version: "3"
+version: "3.8"
+
 services:
-  mongodb:
-    image: mongo:latest
+  news-agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "27017:27017"
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - MONGODB_URI=${MONGODB_URI}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}
+      - KAFKA_GROUP_ID_PREFIX=${KAFKA_GROUP_ID_PREFIX}
+    restart: unless-stopped
     volumes:
-      - ./data:/data/db
+      - ./logs:/app/logs
