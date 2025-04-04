@@ -9,7 +9,21 @@ export const htmlExtractor = async (url: string) => {
     const title =
       dom.querySelector("title")?.text || dom.querySelector("h1")?.text || "";
 
-    // Try to find content using various common selectors
+    const isCaptchaPage =
+      data.includes("captcha") ||
+      data.includes("Captcha") ||
+      data.includes("captcha-delivery") ||
+      data.includes("security check") ||
+      dom.querySelector("title")?.text?.toLowerCase().includes("captcha");
+
+    if (isCaptchaPage) {
+      console.warn(`CAPTCHA detected for URL: ${url}, skipping...`);
+      return sanitizeContent(
+        `This article from ${url} couldn't be accessed due to CAPTCHA protection.`,
+        "Access Blocked by CAPTCHA"
+      );
+    }
+
     const content =
       dom.querySelector("article")?.structuredText ||
       dom.querySelector('[itemprop="articleBody"]')?.structuredText ||
@@ -29,6 +43,32 @@ export const htmlExtractor = async (url: string) => {
 
     return sanitizeContent(content, title);
   } catch (err) {
+    if (axios.isAxiosError(err)) {
+      if (err.response?.status === 401) {
+        console.warn(`Unauthorized (401) for URL: ${url}, skipping...`);
+        return sanitizeContent(
+          `This article from ${url} couldn't be accessed due to authorization restrictions.`,
+          "Access Unauthorized"
+        );
+      }
+
+      if (err.response?.status === 403) {
+        console.warn(`Forbidden (403) for URL: ${url}, skipping...`);
+        return sanitizeContent(
+          `This article from ${url} couldn't be accessed due to access restrictions.`,
+          "Access Forbidden"
+        );
+      }
+
+      if (err.response?.status === 429) {
+        console.warn(`Rate limited (429) for URL: ${url}, skipping...`);
+        return sanitizeContent(
+          `This article from ${url} couldn't be accessed due to rate limiting.`,
+          "Rate Limited"
+        );
+      }
+    }
+
     console.error("HTML extraction failed:", err);
     throw new Error(`Content extraction failed for ${url}: ${err}`);
   }

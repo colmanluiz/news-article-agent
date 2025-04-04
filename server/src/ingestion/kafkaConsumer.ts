@@ -27,13 +27,34 @@ export const runConsumer = async () => {
 
         if (urls && urls.length > 0) {
           for (const url of urls) {
-            console.log(`Found URL: ${url}`);
+            try {
+              console.log(`Found URL: ${url}`);
 
-            const rawContent = await htmlExtractor(url);
-            const cleanedResult = await cleaningService(rawContent, url);
-            console.log("Processed content:", cleanedResult);
+              const rawContent = await htmlExtractor(url);
 
-            await storeArticle(cleanedResult);
+              if (!rawContent) {
+                console.warn(`Extraction failed for ${url}, skipping...`);
+                continue;
+              }
+
+              const cleanedResult = await cleaningService(rawContent, url);
+
+              if (!cleanedResult.url) {
+                console.log(
+                  "URL missing in cleaned result, adding original URL"
+                );
+                cleanedResult.url = url;
+              }
+
+              if (!cleanedResult.title || !cleanedResult.content) {
+                console.warn(`Incomplete article data for ${url}, skipping...`);
+                continue;
+              }
+
+              await storeArticle(cleanedResult);
+            } catch (error) {
+              console.error(`Error processing URL ${url}:`, error);
+            }
           }
         } else {
           console.log("No URLs found in the message");
