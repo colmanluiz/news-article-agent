@@ -4,6 +4,7 @@ import { Article, IArticle } from "./vectorDB.service";
 export const searchArticle = async (query: string) => {
   try {
     const embeddedQuery = await embeddings.embedQuery(query);
+    console.log(embeddedQuery);
 
     const results = await Article.aggregate([
       {
@@ -17,6 +18,8 @@ export const searchArticle = async (query: string) => {
       },
     ]);
 
+    console.log(results);
+
     const formattedResults = results.map((result: IArticle) => ({
       title: result.title,
       content: result.content,
@@ -24,6 +27,13 @@ export const searchArticle = async (query: string) => {
       date: result.date,
     }));
 
+    const indexes = await Article.db.collection("articles").indexes();
+    console.log(
+      "Existing indexes:",
+      indexes.map((i) => i.name)
+    );
+
+    console.log(formattedResults);
     return formattedResults;
   } catch (error) {
     console.error("Error during vector search:", error);
