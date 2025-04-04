@@ -30,21 +30,37 @@ export const connectDB = async () => {
   }
 };
 
-export const storeArticle = async (articleData: {
+export const storeArticle = async (article: {
   title: string;
   content: string;
   url: string;
   date: string;
 }) => {
   try {
-    const article = new Article(articleData);
+    if (!article || !article.url) {
+      throw new Error("Article or URL is missing");
+    }
 
-    const savedArticle = await article.save();
-    console.log("article saved with success! ID: ", savedArticle._id);
+    const existingArticle = await Article.findOne({ url: article.url });
+    if (existingArticle) {
+      console.log(
+        `Article with URL ${article.url} already exists in database, skipping...`
+      );
+      return existingArticle;
+    }
 
-    return savedArticle;
+    const newArticle = new Article({
+      title: article.title,
+      content: article.content,
+      url: article.url,
+      date: article.date || new Date().toISOString().split("T")[0],
+    });
+
+    await newArticle.save();
+    console.log(`Article stored: ${article.title}`);
+    return newArticle;
   } catch (error) {
-    console.error("error storing article: ", error);
+    console.warn("error storing article: ", error);
     throw new Error(`Failed to store article: ${error}`);
   }
 };

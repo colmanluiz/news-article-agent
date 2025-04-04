@@ -7,23 +7,20 @@ dotenv.config();
 export const cleaningService = async (rawHtml: string, articleUrl: string) => {
   try {
     const systemMessage = `  
-    You are an AI assistant tasked with cleaning raw HTML content. Your role is to:
-    1. Remove any unnecessary HTML tags, scripts, and styling
-    2. Extract the main article content
-    3. Organize the content into a clean, readable format
-    4. Keep important semantic structure (headings, paragraphs, lists)
-    5. Remove ads, navigation menus, footers, and other irrelevant content
-
-    Output clean, well-structured content that maintains the article's meaning and hierarchy.
-
-    IMPORTANT: Please, only return a VALID JSON (and nothing else) object without any markdown formatting, code blocks, or backticks.
-    The JSON response NEEDS to directly follow this format:
-      {
-        "title": "Article Title",
-        "content": "Cleaned article content...",
-        "url": "${articleUrl}",
-        "date": "YYYY-MM-DD"
-      }
+    You are an AI assistant that cleans and summarizes article content.
+    
+    Extract and clean the main content from HTML, but LIMIT THE CONTENT to 1000 words maximum.
+    Focus on the most important information in the article.
+    
+    IMPORTANT: Return a COMPLETE, valid JSON object in this EXACT format:
+    {
+      "title": "Article Title",
+      "content": "Cleaned, summarized content (max 1000 words)",
+      "url": "${articleUrl}",
+      "date": "YYYY-MM-DD"
+    }
+    
+    Do not include any explanations, notes, or markdown formatting.
     `;
 
     const userMessage = `  
@@ -57,8 +54,24 @@ export const cleaningService = async (rawHtml: string, articleUrl: string) => {
     try {
       jsonResponse = JSON.parse(responseText);
     } catch (parseError) {
-      console.error("Failed to parse JSON. Response text:", responseText);
-      throw new Error("LLM returned invalid JSON.");
+      console.error("First parse attempt failed, trying recovery...");
+
+      // Attempt to recover by adding missing closing braces
+      const fixedResponse = responseText + '"}';
+      try {
+        jsonResponse = JSON.parse(fixedResponse);
+        console.log("JSON recovery successful");
+      } catch (secondError) {
+        // If recovery fails, create minimal valid response
+        console.error("Recovery failed, creating fallback response");
+        jsonResponse = {
+          title:
+            responseText.match(/"title":\s*"([^"]+)"/)?.[1] || "Unknown Title",
+          content: "Content extraction failed. Please try again later.",
+          url: articleUrl,
+          date: new Date().toISOString().split("T")[0],
+        };
+      }
     }
 
     const { title, content, url, date } = jsonResponse;
@@ -74,6 +87,17 @@ export const cleaningService = async (rawHtml: string, articleUrl: string) => {
     };
   } catch (error) {
     console.error("Error in cleaningService: ", error);
-    throw new Error("Failed to clean HTML content.");
+
+    return {
+      title: "Error Processing Article",
+      content:
+        "We encountered an error processing this article. Original URL: " +
+        articleUrl,
+      url: articleUrl,
+      date: new Date().toISOString().split("T")[0],
+      embeddings: await embeddings.embedQuery(
+        "Error processing article at " + articleUrl
+      ),
+    };
   }
 };
