@@ -1,4 +1,5 @@
 import kafka from "../config/kafka.config";
+import { storeArticle } from "../services/vectorDB.service";
 import { cleaningService } from "./cleaningService";
 import { htmlExtractor } from "./htmlExtractor";
 
@@ -18,7 +19,6 @@ export const runConsumer = async () => {
       const messageValue = message.value?.toString();
       console.log(`New message received: ${messageValue}`);
 
-      // funcao para processar o link
       const processMessage = async (message: string) => {
         const urlRegex =
           /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
@@ -30,18 +30,19 @@ export const runConsumer = async () => {
             console.log(`Found URL: ${url}`);
 
             const rawContent = await htmlExtractor(url);
-            const cleanedResult = await cleaningService(rawContent);
+            const cleanedResult = await cleaningService(rawContent, url);
             console.log("Processed content:", cleanedResult);
-            // await storeArticle(cleanedResult); // Função para armazenar no DB
+
+            await storeArticle(cleanedResult);
           }
         } else {
           console.log("No URLs found in the message");
         }
       };
-      // 1- procurar o link na mensagem
-      // 2- dar um fetch no html do link
-      // 3- mandar para a llm o html com o contexto da noticia
-      // 4- tem que ter uma checagem de erros/ checagem se é realmente uma noticia.
+
+      if (messageValue) {
+        await processMessage(messageValue);
+      }
     },
   });
 };

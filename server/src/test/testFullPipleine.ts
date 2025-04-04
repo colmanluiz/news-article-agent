@@ -10,7 +10,7 @@ async function testFullPipeline(url: string) {
     console.log(`Extracted ${extractedContent.length} characters of content`);
 
     console.log("Step 2: Cleaning with LLM...");
-    const cleanedContent = await cleaningService(extractedContent);
+    const cleanedContent = await cleaningService(extractedContent, url);
 
     console.log("\nFinal result:");
     console.log(JSON.stringify(cleanedContent, null, 2));

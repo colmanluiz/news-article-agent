@@ -1,15 +1,11 @@
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import dotenv from "dotenv";
+import { embeddings } from "../utils/openAiEmbeddings";
+import { llm } from "../utils/openAiGPT";
 dotenv.config();
 
-export const cleaningService = async (rawHtml: string) => {
+export const cleaningService = async (rawHtml: string, articleUrl: string) => {
   try {
-    const llm = new ChatOpenAI({
-      model: "gpt-4o",
-      temperature: 0.2,
-      maxTokens: 500,
-    });
-
     const systemMessage = `  
     You are an AI assistant tasked with cleaning raw HTML content. Your role is to:
     1. Remove any unnecessary HTML tags, scripts, and styling
@@ -20,18 +16,19 @@ export const cleaningService = async (rawHtml: string) => {
 
     Output clean, well-structured content that maintains the article's meaning and hierarchy.
 
-    IMPORTANT: Return a valid JSON object without any markdown formatting, code blocks, or backticks.
-    The JSON response should directly follow this format:
+    IMPORTANT: Please, only return a VALID JSON (and nothing else) object without any markdown formatting, code blocks, or backticks.
+    The JSON response NEEDS to directly follow this format:
       {
         "title": "Article Title",
         "content": "Cleaned article content...",
-        "url": "https://...",
+        "url": "${articleUrl}",
         "date": "YYYY-MM-DD"
       }
     `;
 
     const userMessage = `  
-    HTML: ${rawHtml} 
+    HTML: ${rawHtml},
+    URL: ${articleUrl}
     `;
 
     const aiMsg = await llm.invoke([
@@ -55,14 +52,25 @@ export const cleaningService = async (rawHtml: string) => {
 
     console.log("Cleaned response:", responseText.substring(0, 100) + "...");
 
-    const jsonResponse = JSON.parse(responseText);
+    let jsonResponse;
+
+    try {
+      jsonResponse = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse JSON. Response text:", responseText);
+      throw new Error("LLM returned invalid JSON.");
+    }
 
     const { title, content, url, date } = jsonResponse;
+
+    const embeddedContent = await embeddings.embedQuery(content);
+
     return {
       title,
       content,
       url,
       date,
+      embeddings: embeddedContent,
     };
   } catch (error) {
     console.error("Error in cleaningService: ", error);
